@@ -104,7 +104,7 @@ print (dc_module_text)
 # # 4. Carrier opration Module Run
 # print (co_module_text)
 # B2C
-os.system("python VRP_OR-tools_Stops_veh_tech.py \
+os.system("python VRP_OR-tools_Stops_veh_tech_original_kyungsoo.py \
     -cy {2} \
         -t ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/tt_df_cbg.csv.gz \
             -d ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/Austin_od_dist.csv \
@@ -116,16 +116,16 @@ os.system("python VRP_OR-tools_Stops_veh_tech.py \
                                     -yt {1} \
                                        -ps ../../../FRISM_input_output_AT/Sim_outputs/Tour_constraint/".format(scenario, year, county, sample_rate))
 # #     # # B2B
-# os.system("python VRP_OR-tools_Stops_veh_tech.py \
-#     -cy {2} \
-#         -t ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/tt_df_cbg.csv.gz \
-#             -d ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/Austin_od_dist.csv  \
-#                 -ct ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/Austin_freight_centroids.geojson \
-#                     -cr ../../../FRISM_input_output_AT/Sim_outputs/Shipment2Fleet/{1}/B2B_carrier_county{2}_shipall_A_s{0}_y{1}_sr{3}.csv \
-#                         -pl ../../../FRISM_input_output_AT/Sim_outputs/Shipment2Fleet/{1}/B2B_payload_county{2}_shipall_A_s{0}_y{1}_sr{3}.csv \
-#                             -vt ../../../FRISM_input_output_AT/Sim_outputs/Shipment2Fleet/{1}/vehicle_types_s{0}_y{1}.csv \
-#                                 -sn {0} \
-#                                     -yt {1} \
-#                                        -ps ../../../FRISM_input_output_AT/Sim_outputs/Tour_constraint/".format(scenario, year, county, sample_rate))
+os.system("python VRP_OR-tools_Stops_veh_tech_original_kyungsoo.py \
+    -cy {2} \
+        -t ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/tt_df_cbg.csv.gz \
+            -d ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/Austin_od_dist.csv  \
+                -ct ../../../FRISM_input_output_AT/Sim_inputs/Geo_data/Austin_freight_centroids.geojson \
+                    -cr ../../../FRISM_input_output_AT/Sim_outputs/Shipment2Fleet/{1}/B2B_carrier_county{2}_shipall_A_s{0}_y{1}_sr{3}.csv \
+                        -pl ../../../FRISM_input_output_AT/Sim_outputs/Shipment2Fleet/{1}/B2B_payload_county{2}_shipall_A_s{0}_y{1}_sr{3}.csv \
+                            -vt ../../../FRISM_input_output_AT/Sim_outputs/Shipment2Fleet/{1}/vehicle_types_s{0}_y{1}.csv \
+                                -sn {0} \
+                                    -yt {1} \
+                                       -ps ../../../FRISM_input_output_AT/Sim_outputs/Tour_constraint/".format(scenario, year, county, sample_rate))
 
 print ("Completed running modules you selected")
