@@ -48,7 +48,7 @@ python Run_frism.py [county number] [year] [scenario name] [sampling rate] [Y or
 An example of the above command that use the data in the 'Example_Data' folder is:
 ```linux
 cd src/Simulation
-python Run_frism.py 21 2018 base 10 Y AT
+python Run_frism.py 21 2018 Base 10 Y AT
 ```
 
 The output of the above simulation will be saved in a **FRISM_input_output_AT/** at the same directory level as the repository folder. The tour plans results from the vehicle routing algorithm will be under **FRISM_input_output_AT/Sim_outputs/Tour_plan/[year]**.
