@@ -442,11 +442,6 @@ os.system("python VRP_OR-tools_Stops_veh_tech.py \
 ```
 **Note**: The actual paths are constructed using the parameters provided to `Run_frism.py`.
 
-### Example `Run_frism.py` Script
-
-[Please refer to the `Run_frism.py` code provided in the previous section.]
-
-## Usage
 
 ### Running the Simulation via `Run_frism.py`
 
