@@ -99,7 +99,7 @@ def create_data_model(df_prob, depot_loc, prob_type, v_df, f_prob, c_prob, carri
   - Accounts for vehicle types and capacities.
 - **Returns**: A dictionary `data` containing all VRP parameters.
 
-### 5. `ec_cal(...)`
+### 5. `input_files_processing(...)`
 
 Processes input files to generate dataframes necessary for VRP formulation.
 
