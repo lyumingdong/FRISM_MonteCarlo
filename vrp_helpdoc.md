@@ -231,3 +231,231 @@ The script begins by processing various input files that contain essential data:
 - **Vehicle Type Data**: Vehicle capacities, types, and other attributes.
 
 The `input_files_processing` function reads these files and prepares dataframes for further processing.
+
+## VRP Model Formulation
+
+The VRP is formulated using OR-Tools' `RoutingModel`. The key components of the model are:
+
+- **Nodes**: Representing the depot and delivery/pickup locations.
+- **Time Matrix**: Travel times between nodes.
+- **Energy Matrix**: Energy costs between nodes.
+- **Demands**: Load requirements at each node.
+- **Time Windows**: Allowed time frames for arrivals at each node.
+- **Vehicle Capacities**: Load capacities for each vehicle.
+- **Vehicles**: The fleet of vehicles available for routing.
+
+## Combining Energy and Time in the Objective Function
+
+### Objective Function Formulation
+
+The script combines energy consumption and travel time into a single objective function to optimize both factors simultaneously. This is achieved by defining a **combined cost callback** function:
+
+```python
+def create_combined_cost_callback(manager, data):
+    """Creates a combined time and energy cost callback."""
+    def combined_cost_callback(from_index, to_index):
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        time_cost = data['time_matrix'][from_node][to_node] + data['stop_durations'][from_node]
+        energy_cost = data['energy_matrix'][from_node][to_node]
+        combined_cost = w1 * time_cost + w2 * energy_cost
+        return combined_cost
+    return combined_cost_callback
+```
+
+In this function:
+
+- **`time_cost`**: The travel time between nodes, including any stop durations.
+- **`energy_cost`**: The energy consumed between nodes.
+- **`w1` and `w2`**: Weights assigned to time and energy costs, respectively.
+
+### Weight Parameters
+
+The weights `w1` and `w2` allow for adjusting the importance of time versus energy in the optimization:
+
+- **If `w1` > `w2`**: Time is prioritized over energy.
+- **If `w2` > `w1`**: Energy consumption is prioritized over travel time.
+
+These weights are passed as parameters when invoking the `form_solve` function:
+
+```python
+used_veh = form_solve(
+    data, tour_df, carr_id, carrier_df, payload_df,
+    prob_type, count_num, ship_type, c_prob, df_prob,
+    max_time, index, comm, error_list, results_df, w1, w2
+)
+```
+
+### Setting the Objective in OR-Tools
+
+After defining the combined cost callback, it is registered with the routing model:
+```python
+transit_callback_index = routing.RegisterTransitCallback(combined_cost_callback)
+routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+```
+This tells the solver to use the combined cost as the objective function when evaluating the cost of moving from one node to another.
+
+---
+
+## Incorporating Monte Carlo Simulation for Robust Route Selection
+
+### Purpose of Monte Carlo Simulation
+
+Real-world conditions such as travel times and energy consumption are subject to variability due to factors like traffic congestion, weather, and vehicle performance. To account for this uncertainty, the script uses **Monte Carlo simulation** to:
+
+- **Assess Route Robustness**: Evaluate how routes perform under different random variations.
+- **Identify Optimal Routes**: Select routes that consistently perform well across simulations.
+- **Enhance Reliability**: Ensure the chosen routes are less sensitive to variability.
+
+### Implementation Details
+
+#### Adjusting Travel Times Randomly
+
+Within each Monte Carlo iteration, the script introduces randomness to the travel times:
+
+```python
+# Store the original time matrix
+data['time_matrix_origin'] = data['time_matrix'].copy()
+
+# Adjust travel times by a random factor between 0.8 and 1.2
+datatemp = [
+    [int(x * random.uniform(0.8, 1.2)) for x in row]
+    for row in data['time_matrix_origin']
+]
+data['time_matrix'] = datatemp
+```
+This simulates variability in travel times, such as delays or faster-than-expected travel.
+
+#### Running Multiple Simulations
+
+The script runs multiple iterations (e.g., num_montecarlo = 2) to generate different scenarios:
+
+```python
+num_montecarlo = 2
+for sim_seq in range(num_montecarlo):
+    # Adjust travel times and solve the VRP
+    ...
+```
+
+Each iteration represents a different possible state of the world, providing a broader assessment of route performance.
+
+#### Collecting and Analyzing Results
+
+After running all simulations, the script aggregates the results:
+
+- **Stores Routes and Costs**: Keeps track of routes, distances, and whether time windows were met.
+- **Calculates Variability**: Computes statistics like standard deviation of total distances.
+- **Selects Best Routes**: Identifies routes that have the lowest total distance and meet all constraints across simulations.
+
+### Selecting the Most Robust Route
+
+After generating the simulation results, a separate **post-processing script** is used to analyze the outcomes and select the most robust route.
+
+#### Post-Processing Code Overview
+
+The post-processing code performs the following steps:
+
+1. **Read Simulation Results**: Loads the simulation results from CSV files.
+2. **Parse Route Data**: Converts string representations of routes and matrices back into usable data structures.
+3. **Calculate Total Distance**: Computes the total distance for each route using the distance matrix and stop durations.
+4. **Check Time Windows**: Verifies that each route satisfies the time window constraints.
+5. **Aggregate Results**: Collects distances and checks across simulations.
+6. **Select Best Route**: Identifies the route with the least variability in total distance (lowest standard deviation) and valid time windows.
+7. **Merge Final Results**: Combines data for the best routes into final output files.
+
+#### Example Post-Processing Code
+
+[Please refer to the post-processing code provided in the previous section.]
+
+#### Benefits of This Approach
+
+- **Risk Mitigation**: By considering variability, the selected route is less likely to be adversely affected by unforeseen events.
+- **Performance Assurance**: Ensures that the chosen route performs consistently well, rather than being optimal only under ideal conditions.
+- **Data-Driven Decision Making**: Provides quantitative metrics to support route selection.
+
+### Saving Final Results
+
+After identifying the most robust routes, the script saves the final results:
+```python
+# Merge final results with original data
+result_df_carrier = pd.merge(df_carrier, final_results, on=['tour_id', 'sim_seq'], how='inner')
+result_df_tour = pd.merge(df_tour, final_results, on=['tour_id', 'sim_seq'], how='inner')
+result_df_load = pd.merge(df_load, final_results, on=['tour_id', 'sim_seq'], how='inner')
+
+# Save the final dataframes to CSV files
+result_df_carrier.to_csv(carrier_name + '.csv', index=False)
+result_df_tour.to_csv(tour_name + '.csv', index=False)
+result_df_load.to_csv(load_name + '.csv', index=False)
+```
+## Running the VRP Solver via `Run_frism.py`
+
+### Overview of `Run_frism.py`
+
+The `Run_frism.py` script is a wrapper that orchestrates various modules, including the VRP solver. It accepts command-line arguments and calls the VRP solver with appropriate parameters.
+
+### Command-Line Usage
+
+To run the entire simulation, including the VRP solver, use the following command:
+
+```bash
+python Run_frism.py [county number] [year] [scenario name] [sampling rate] [Y or N] [region]
+```
+#### Example:
+```bash
+python Run_frism.py 21 2018 base 10 Y AT
+```
+
+In this example, the parameters are:
+
+- **County Number**: `21`
+- **Year**: `2018`
+- **Scenario Name**: `base`
+- **Sampling Rate**: `10`
+- **Data Generation Flag (Y or N)**: `Y`
+- **Region**: `AT` (e.g., Austin)
+
+### Parameters Explained
+
+- **`[county number]`**: An integer representing the county number in the scenario.
+- **`[year]`**: The target analysis year (e.g., `2018`).
+- **`[scenario name]`**: The name of the scenario (e.g., `base`, `future_scenario`).
+- **`[sampling rate]`**: The sample rate for data generation (e.g., `10`).
+- **`[Y or N]`**: A flag indicating whether to generate data (`Y`) or not (`N`).
+- **`[region]`**: The region identifier (e.g., `AT` for Austin).
+
+### How `Run_frism.py` Calls the VRP Solver
+
+Within `Run_frism.py`, the VRP solver is called using `os.system()` with the appropriate parameters:
+
+```python
+os.system("python VRP_OR-tools_Stops_veh_tech.py \
+    -cy {county} \
+    -t ../../../FRISM_input_output_{region}/Sim_inputs/Geo_data/tt_df_cbg.csv.gz \
+    -d ../../../FRISM_input_output_{region}/Sim_inputs/Geo_data/Austin_od_dist.csv \
+    -ct ../../../FRISM_input_output_{region}/Sim_inputs/Geo_data/Austin_freight_centroids.geojson \
+    -cr ../../../FRISM_input_output_{region}/Sim_outputs/Shipment2Fleet/{year}/B2C_carrier_county{county}_shipall_s{scenario}_y{year}_sr{sample_rate}.csv \
+    -pl ../../../FRISM_input_output_{region}/Sim_outputs/Shipment2Fleet/{year}/B2C_payload_county{county}_shipall_s{scenario}_y{year}_sr{sample_rate}.csv \
+    -vt ../../../FRISM_input_output_{region}/Sim_outputs/Shipment2Fleet/{year}/vehicle_types_s{scenario}_y{year}.csv \
+    -sn {scenario} \
+    -yt {year} \
+    -ps ../../../FRISM_input_output_{region}/Sim_outputs/Tour_constraint/")
+```
+**Note**: The actual paths are constructed using the parameters provided to `Run_frism.py`.
+
+### Example `Run_frism.py` Script
+
+[Please refer to the `Run_frism.py` code provided in the previous section.]
+
+## Usage
+
+### Running the Simulation via `Run_frism.py`
+
+To run the simulation, including the VRP solver, use the following command:
+
+```bash
+python Run_frism.py [county number] [year] [scenario name] [sampling rate] [Y or N] [region]
+```
+#### Example:
+```python
+python Run_frism.py 21 2018 base 10 Y AT
+```
